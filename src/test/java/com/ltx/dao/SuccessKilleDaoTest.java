@@ -8,8 +8,6 @@ import org.springframework.test.context.junit4.SpringJUnit4ClassRunner;
 
 import javax.annotation.Resource;
 
-import static org.junit.Assert.*;
-
 /**
  * Created by Rain on 2017/1/14.
  */
@@ -17,7 +15,7 @@ import static org.junit.Assert.*;
 @ContextConfiguration("classpath:spring/spring-dao.xml")
 public class SuccessKilleDaoTest {
     @Resource
-    private SuccessKilleDao successKilleDao;
+    private SuccessKilledDao successKilleDao;
 
     /*
     INSERT ignore INTO success_killed(seckill_id,user_phone,state)VALUES (?,?,1)

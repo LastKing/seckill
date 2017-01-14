@@ -6,7 +6,7 @@ import org.apache.ibatis.annotations.Param;
 /**
  * Created by toonew on 2017/1/14.
  */
-public interface SuccessKilleDao {
+public interface SuccessKilledDao {
     /**
      * 插入购买明细,可过滤重复(数据库有联合主键)
      *
