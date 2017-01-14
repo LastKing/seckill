@@ -1,6 +1,7 @@
 package com.ltx.dao;
 
 import com.ltx.entity.Seckill;
+import org.apache.ibatis.annotations.Param;
 
 import java.util.Date;
 import java.util.List;
@@ -12,14 +13,16 @@ public interface SeckillDao {
 
     /**
      * 减库存
+     *
      * @param seckillId
      * @param killTime
-     * @return 如果更新行数大于1,表示更新的行数
+     * @return 如果更新行数大于1, 表示更新的行数
      */
-    int reduceNumber(long seckillId, Date killTime);
+    int reduceNumber(@Param("seckillId") long seckillId, @Param("killTime") Date killTime);
 
     /**
      * 根据id 查询秒杀对象
+     *
      * @param seckillId
      * @return
      */
@@ -28,9 +31,10 @@ public interface SeckillDao {
 
     /**
      * 根据偏移量查询秒杀商品列表
-     * @param offet
+     *
+     * @param offset
      * @param limit
      * @return
      */
-    List<Seckill> queryAll(int offet, int limit);
+    List<Seckill> queryAll(@Param("offset") int offset, @Param("limit") int limit);
 }
