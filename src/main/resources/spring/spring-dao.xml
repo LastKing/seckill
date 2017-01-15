@@ -46,4 +46,10 @@
         <property name="basePackage" value="com.ltx.dao"/>
     </bean>
 
+    <!-- Redis Dao -->
+    <bean id="redisDao" class="com.ltx.dao.cache.RedisDao">
+        <constructor-arg index="0" value="${redis.url}"/>
+        <constructor-arg index="1" value="${redis.port}"/>
+    </bean>
+
 </beans>

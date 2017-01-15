@@ -2,6 +2,7 @@ package com.ltx.services.impl;
 
 import com.ltx.dao.SeckillDao;
 import com.ltx.dao.SuccessKilledDao;
+import com.ltx.dao.cache.RedisDao;
 import com.ltx.dto.Exposer;
 import com.ltx.dto.SeckillExecution;
 import com.ltx.entity.Seckill;
@@ -38,6 +39,9 @@ public class SeckillServiceImpl implements SeckillService {
     @Autowired
     private SuccessKilledDao successKilledDao;
 
+    @Resource
+    private RedisDao redisDao;
+
     //md5盐值字符串,用于混淆md5
     private final String salt = "fdsafsadfjksadfjlksadjfklsdafsad";
 
@@ -53,8 +57,19 @@ public class SeckillServiceImpl implements SeckillService {
 
     @Override
     public Exposer exportSeckillUrl(long seckillId) {
-        //优化点：缓存优化
-        Seckill seckill = seckillDao.queryById(seckillId);
+        //优化点：缓存优化 ： 超时的基础上 维护的 一致性
+        //1.访问redis
+        Seckill seckill = redisDao.getSeckill(seckillId);
+        if (seckill == null) {
+            seckill = seckillDao.queryById(seckillId);
+            if (seckill == null) {
+                return new Exposer(false, seckillId);
+            } else {
+                //3.放入redis
+                redisDao.putSeckill(seckill);
+            }
+        }
+
         if (seckill == null) {
             return new Exposer(false, seckillId);
         }
@@ -88,7 +103,7 @@ public class SeckillServiceImpl implements SeckillService {
     @Transactional
     public SeckillExecution executeSeckill(long seckillId, long userPhone, String md5) throws SeckillException, RepeatKillException, SeckillCloseException {
         try {
-                                //27dda456c8b326b564b7f9dfae117821
+            //27dda456c8b326b564b7f9dfae117821
             if (md5 == null | !md5.equals(getMD5(seckillId))) {
                 throw new SeckillException("seckill data rewrite");
             }
