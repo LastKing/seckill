@@ -13,8 +13,12 @@ import com.ltx.exception.SeckillException;
 import com.ltx.services.SeckillService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.DigestUtils;
 
+import javax.annotation.Resource;
 import java.util.Date;
 import java.util.List;
 
@@ -22,13 +26,19 @@ import java.util.List;
  * 业务接口:站在使用者(程序员)的角度设计  实现
  * Created by Rain on 2017/1/14.
  */
+//@Component @Controller @Service @Repository
+@Service
 public class SeckillServiceImpl implements SeckillService {
     private Logger logger = LoggerFactory.getLogger(this.getClass());
 
+    //注入Service 依赖
+    @Resource
     private SeckillDao seckillDao;
 
+    @Autowired
     private SuccessKilledDao successKilledDao;
 
+    //md5盐值字符串,用于混淆md5
     private final String salt = "fdsafsadfjksadfjlksadjfklsdafsad";
 
     @Override
@@ -67,12 +77,18 @@ public class SeckillServiceImpl implements SeckillService {
         return md5;
     }
 
-
+    /**
+     * 使用注解控制事务的优点:
+     * 1.开发团队达成一致约定,明确标注事务方法的编程风格.
+     * 2.保证事务方法的执行时间尽可能短,不要穿插其他网络操作RPC/HTTP请求或者剥离到事务方法外部.
+     * 3.不是所有的方法都需要事务.如一些查询的service.只有一条修改操作的service.
+     */
     @Override
+    @Transactional
     public SeckillExecution executeSeckill(long seckillId, long userPhone, String md5) throws SeckillException, RepeatKillException, SeckillCloseException {
         try {
-
-            if (md5 == null | md5.equals(getMD5(seckillId))) {
+                                //27dda456c8b326b564b7f9dfae117821
+            if (md5 == null | !md5.equals(getMD5(seckillId))) {
                 throw new SeckillException("seckill data rewrite");
             }
             //执行秒杀逻辑:减库存+增加购买明细
