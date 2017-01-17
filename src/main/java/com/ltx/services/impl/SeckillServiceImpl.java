@@ -12,6 +12,7 @@ import com.ltx.exception.RepeatKillException;
 import com.ltx.exception.SeckillCloseException;
 import com.ltx.exception.SeckillException;
 import com.ltx.services.SeckillService;
+import org.apache.commons.collections.MapUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,7 +22,9 @@ import org.springframework.util.DigestUtils;
 
 import javax.annotation.Resource;
 import java.util.Date;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * 业务接口:站在使用者(程序员)的角度设计  实现
@@ -102,22 +105,28 @@ public class SeckillServiceImpl implements SeckillService {
     @Override
     @Transactional
     public SeckillExecution executeSeckill(long seckillId, long userPhone, String md5) throws SeckillException, RepeatKillException, SeckillCloseException {
+        //27dda456c8b326b564b7f9dfae117821
+        if (md5 == null | !md5.equals(getMD5(seckillId))) {
+            throw new SeckillException("seckill data rewrite");
+        }
+        //执行秒杀逻辑:减库存+增加购买明细
+        Date nowTime = new Date();
+
         try {
-            //27dda456c8b326b564b7f9dfae117821
-            if (md5 == null | !md5.equals(getMD5(seckillId))) {
-                throw new SeckillException("seckill data rewrite");
-            }
-            //执行秒杀逻辑:减库存+增加购买明细
-            Date nowTime = new Date();
-            int updateCount = seckillDao.reduceNumber(seckillId, nowTime);
-            if (updateCount <= 0) {
-                throw new SeckillCloseException("seckill is closed");
+            //记录购买行为
+            int insertCount = successKilledDao.insertSuccessKilled(seckillId, userPhone);
+            //唯一：seckillId，userPhone
+            if (insertCount <= 0) {
+                //重复秒杀
+                throw new RepeatKillException("seckill repeated");
             } else {
-                int insertCount = successKilledDao.insertSuccessKilled(seckillId, userPhone);
-                if (insertCount <= 0) {
-                    throw new RepeatKillException("seckill repeated");
+                //减库存，热点商品竞争
+                int updateCount = seckillDao.reduceNumber(seckillId, nowTime);
+                if (updateCount <= 0) {
+                    //没有更新到记录，秒杀结束,rollback
+                    throw new SeckillCloseException("seckill is closed");
                 } else {
-                    //秒杀成功,得到成功插入的明细记录,并返回成功秒杀的信息
+                    //秒杀成功,得到成功插入的明细记录,并返回成功秒杀的信息 ,commit
                     SuccessKilled successKilled = successKilledDao.queryByIdWithSeckill(seckillId, userPhone);
                     return new SeckillExecution(seckillId, SeckillStatEnum.SUCCESS, successKilled);
                 }
@@ -132,4 +141,34 @@ public class SeckillServiceImpl implements SeckillService {
             throw new SeckillException("seckill inner error :" + e.getMessage());
         }
     }
+
+    @Override
+    public SeckillExecution executeSeckillProcedure(long seckillId, long userPhone, String md5) {
+        if (md5 == null || md5.equals(getMD5(seckillId))) {
+            return new SeckillExecution(seckillId, SeckillStatEnum.DATE_REWRITE);
+        }
+        Date time = new Date();
+        Map<String, Object> map = new HashMap<String, Object>();
+        map.put("seckillId", seckillId);
+        map.put("phone", userPhone);
+        map.put("killTime", time);
+        map.put("result", null);
+
+        try {
+            seckillDao.killByProcedure(map);
+            //获取result
+            int result = MapUtils.getInteger(map, "result", -2);
+
+            if (result == 1) {
+                SuccessKilled successKill = successKilledDao.queryByIdWithSeckill(seckillId, userPhone);
+                return new SeckillExecution(seckillId, SeckillStatEnum.SUCCESS, successKill);
+            } else {
+                return new SeckillExecution(seckillId, SeckillStatEnum.stateOf(result));
+            }
+        } catch (Exception e) {
+            logger.error(e.getMessage(), e);
+            return new SeckillExecution(seckillId, SeckillStatEnum.INNER_ERROR);
+        }
+    }
+
 }
